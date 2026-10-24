@@ -7,7 +7,7 @@
 #   Pin a version:    ... | DIRPIN_REF=v0.1.0 bash
 set -euo pipefail
 
-REPO="fathss/dirpin"
+REPO="${DIRPIN_REPO:-fathss/dirpin}"
 REF="${DIRPIN_REF:-main}"
 RAW_URL="https://raw.githubusercontent.com/$REPO/$REF/dirpin.sh"
 dest="${XDG_DATA_HOME:-$HOME/.local/share}/dirpin"

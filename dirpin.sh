@@ -14,10 +14,10 @@
   exit 1
 }
 
-DIRPIN_VERSION="0.1.0"
+DIRPIN_VERSION="0.1.1"
 : "${DIRPIN_FILE:=${XDG_DATA_HOME:-$HOME/.local/share}/dirpin/bookmarks}"
 : "${DIRPIN_CMD:=dp}"
-: "${DIRPIN_REPO:=YOUR_USERNAME/dirpin}"
+: "${DIRPIN_REPO:=fathss/dirpin}"
 
 # Remember where this file lives, so the updater knows what to replace.
 if [ -n "${ZSH_VERSION-}" ]; then
@@ -232,6 +232,7 @@ _dirpin_reply() {
 }
 
 _dirpin_complete() {
+  [ -n "${ZSH_VERSION-}" ] && setopt localoptions ksharrays
   local cur="${COMP_WORDS[COMP_CWORD]}" prev="${COMP_WORDS[COMP_CWORD - 1]}"
   case "$prev" in
     -s | --save) COMPREPLY=() ;; # a new name: nothing to suggest
@@ -264,7 +265,7 @@ case "$DIRPIN_CMD" in
         autoload -U +X bashcompinit 2>/dev/null && bashcompinit 2>/dev/null
       fi
       if command -v complete >/dev/null 2>&1; then
-        complete -F _dirpin_complete "$DIRPIN_CMD" 2>/dev/null
+        complete -F _dirpin_complete "$DIRPIN_CMD" 2>/dev/null || true
       fi
     fi
     ;;

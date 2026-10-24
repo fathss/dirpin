@@ -73,7 +73,7 @@ Set these before the `source` line in your rc file.
 | ------------- | --------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `DIRPIN_CMD`  | `dp`                              | Name of the command. dirpin refuses to shadow an existing command, so set this if `dp` is taken. |
 | `DIRPIN_FILE` | `~/.local/share/dirpin/bookmarks` | Where bookmarks are stored                                                                       |
-| `DIRPIN_REPO` | `YOUR_USERNAME/dirpin`            | Repository that `dp -u` checks for releases. Set it if you run a fork.                           |
+| `DIRPIN_REPO` | `fathss/dirpin`                   | Repository that `dp -u` checks for releases. Set it if you run a fork.                           |
 |               |
 
 Bookmarks live in a plain tab-separated text file, so they're easy to back up or keep in a dotfiles repo.

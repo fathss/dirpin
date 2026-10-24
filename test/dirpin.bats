@@ -111,7 +111,7 @@ load test_helper
   run dp -h
   [[ "$output" == *"dp -s [name]"* ]]
   run dp -V
-  [[ "$output" == "dirpin 0.1.0" ]]
+  [[ "$output" == "dirpin $DIRPIN_VERSION" ]]
 }
 
 @test "a bookmark named like a subcommand still jumps" {
