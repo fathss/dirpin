@@ -89,6 +89,18 @@ STUB
   cmp "$INSTALLED" "$BATS_TEST_TMPDIR/original.sh"
 }
 
+@test "refuses to update when symlinked to a git clone" {
+  mkdir "$BATS_TEST_TMPDIR/clone" "$BATS_TEST_TMPDIR/clone/.git"
+  cp "$INSTALLED" "$BATS_TEST_TMPDIR/clone/dirpin.sh"
+  ln -sf "$BATS_TEST_TMPDIR/clone/dirpin.sh" "$INSTALLED"
+  source "$INSTALLED"
+  export STUB_TAG="v9.9.9"
+  run dp -u
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"git clone"* ]]
+  [ -L "$INSTALLED" ]
+}
+
 @test "fails cleanly when the release lookup fails" {
   export STUB_API_FAIL=1
   run dp -u

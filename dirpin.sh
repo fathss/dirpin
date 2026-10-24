@@ -14,7 +14,7 @@
   exit 1
 }
 
-DIRPIN_VERSION="0.1.1"
+DIRPIN_VERSION="0.1.2"
 : "${DIRPIN_FILE:=${XDG_DATA_HOME:-$HOME/.local/share}/dirpin/bookmarks}"
 : "${DIRPIN_CMD:=dp}"
 : "${DIRPIN_REPO:=fathss/dirpin}"
@@ -37,8 +37,14 @@ _dirpin_get() {
 # Remove bookmark $1 from the file (no error if absent).
 _dirpin_drop() {
   [ -f "$DIRPIN_FILE" ] || return 0
-  local tmp="$DIRPIN_FILE.tmp.$$"
-  N="$1" awk -F'\t' '$1 != ENVIRON["N"]' "$DIRPIN_FILE" > "$tmp" && mv -- "$tmp" "$DIRPIN_FILE"
+  local tmp
+  tmp=$(mktemp "${DIRPIN_FILE}.tmp.XXXXXX" 2>/dev/null) || tmp="$DIRPIN_FILE.tmp.$$-$RANDOM"
+  if N="$1" awk -F'\t' '$1 != ENVIRON["N"]' "$DIRPIN_FILE" > "$tmp"; then
+    mv -f -- "$tmp" "$DIRPIN_FILE"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 # A valid name is non-empty, doesn't start with "-", and has no whitespace,
@@ -82,9 +88,11 @@ _dirpin_save() {
       ;;
   esac
   local verb="saved"
-  _dirpin_get "$name" >/dev/null && verb="updated"
   mkdir -p -- "$(dirname "$DIRPIN_FILE")" || return 1
-  _dirpin_drop "$name" || return 1
+  if _dirpin_get "$name" >/dev/null; then
+    verb="updated"
+    _dirpin_drop "$name" || return 1
+  fi
   printf '%s\t%s\n' "$name" "$PWD" >> "$DIRPIN_FILE"
   echo "$verb: $name -> $PWD"
 }
@@ -140,8 +148,17 @@ _dirpin_fetch() {
 
 # Replace this file with the latest GitHub release's dirpin.sh.
 _dirpin_update() {
-  local dir latest tmp newest
-  dir="$(cd "$(dirname "$_DIRPIN_SELF")" && pwd)"
+  local dir latest tmp newest self
+  self="$_DIRPIN_SELF"
+  while [ -L "$self" ]; do
+    dir="$(cd "$(dirname "$self")" && pwd)"
+    self="$(readlink "$self")"
+    case "$self" in
+      /*) ;;
+      *) self="$dir/$self" ;;
+    esac
+  done
+  dir="$(cd "$(dirname "$self")" && pwd)"
   if [ -d "$dir/.git" ]; then
     echo "dirpin: running from a git clone; update with: git -C \"$dir\" pull" >&2
     return 1

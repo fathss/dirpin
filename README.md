@@ -37,7 +37,13 @@ cd dirpin
 ./install.sh
 ```
 
-Both methods copy `dirpin.sh` to `~/.local/share/dirpin/` and add one `source` line to your `~/.bashrc` (or `~/.zshrc` if your shell is zsh). Open a new terminal afterwards. To use a different file, run `./install.sh --rc ~/.bash_profile` (or `bash -s -- --rc ~/.bash_profile` after the curl pipe).
+If you plan to delete the clone after installing, pass `--copy` instead:
+
+```bash
+./install.sh --copy
+```
+
+Both methods add a `source` line to your `~/.bashrc` (or `~/.zshrc`). Open a new terminal afterwards. To use a different file, run `./install.sh [--copy] --rc ~/.bash_profile`.
 
 ### By hand
 
@@ -45,9 +51,20 @@ Put `dirpin.sh` anywhere and add `source /path/to/dirpin.sh` to your rc file. It
 
 ### Uninstall
 
-From a clone: `./uninstall.sh` (add `--purge` to delete your bookmarks too).
+From a clone:
 
-Without a clone: remove the `source` line and the `# dirpin` comment from your rc file, then `rm -rf ~/.local/share/dirpin`. That last command also deletes your bookmarks.
+```bash
+./uninstall.sh            # keeps bookmarks
+./uninstall.sh --purge    # deletes bookmarks too
+```
+
+Without a clone:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/fathss/dirpin/main/uninstall.sh | bash
+```
+
+Or manually: remove the `source` line and `# dirpin` comment from your rc file, then run `rm -f ~/.local/share/dirpin/dirpin.sh` (or `rm -rf ~/.local/share/dirpin` to delete your bookmarks too).
 
 ## Usage
 
