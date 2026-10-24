@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches DIRPIN_VERSION
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          file_version="$(sed -n 's/^DIRPIN_VERSION="\(.*\)"/\1/p' dirpin.sh)"
+          if [ "$tag_version" != "$file_version" ]; then
+            echo "::error::tag is $GITHUB_REF_NAME but dirpin.sh says DIRPIN_VERSION=$file_version"
+            exit 1
+          fi
+
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y bats shellcheck
+
+      - name: Lint and test
+        run: |
+          make lint
+          make test
+
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '
+            $0 ~ "^## " v "( |$)" { found = 1; next }
+            found && /^## /       { exit }
+            found                 { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::no '## $version' section found in CHANGELOG.md"
+            exit 1
+          fi
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=()
+          case "$GITHUB_REF_NAME" in *-*) flags+=(--prerelease) ;; esac
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            "${flags[@]}"
