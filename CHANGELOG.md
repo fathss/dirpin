@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.2.0 - 2026-10-25
+
+### Added
+- **Rename bookmark (`dp -r` / `--rename`)**: Rename an existing bookmark to a new name.
+- **Stale bookmark cleanup (`dp -c` / `--clean`)**: Clean up bookmarks whose directory no longer exists.
+- Tab completion and help text for `-r` and `-c`.
+
 ## 0.1.2 - 2026-10-25
 
 ### Added

@@ -74,7 +74,9 @@ Or manually: remove the `source` line and `# dirpin` comment from your rc file, 
 | `dp name`         | Jump to a bookmark                                         |
 | `dp -s [name]`    | Save the current directory (defaults to the folder's name) |
 | `dp -d name`      | Delete a bookmark                                          |
+| `dp -r old new`   | Rename a bookmark                                          |
 | `dp -p name`      | Print the path, for scripts: `cp file "$(dp -p api)"`      |
+| `dp -c`           | Clean up bookmarks whose directory no longer exists        |
 | `dp -u`           | Update to the latest release                               |
 | `dp -h` / `dp -V` | Help / version                                             |
 
@@ -91,7 +93,6 @@ Set these before the `source` line in your rc file.
 | `DIRPIN_CMD`  | `dp`                              | Name of the command. dirpin refuses to shadow an existing command, so set this if `dp` is taken. |
 | `DIRPIN_FILE` | `~/.local/share/dirpin/bookmarks` | Where bookmarks are stored                                                                       |
 | `DIRPIN_REPO` | `fathss/dirpin`                   | Repository that `dp -u` checks for releases. Set it if you run a fork.                           |
-|               |
 
 Bookmarks live in a plain tab-separated text file, so they're easy to back up or keep in a dotfiles repo.
 
@@ -125,8 +126,6 @@ Requires [bats-core](https://github.com/bats-core/bats-core) and [shellcheck](ht
 
 ## Roadmap
 
-- `dp -r old new` to rename
-- `dp -c` to clean up bookmarks whose directory no longer exists
 - Subpath jumping: `dp api/src/controllers`
 - Project-local bookmark files that teammates share through the repo
 - zsh and more Linux distributions in CI
