@@ -23,10 +23,17 @@ if [ -z "$rc" ]; then
 fi
 
 if [ -f "$rc" ]; then
-  tmp="$rc.dirpin.tmp"
-  grep -vxF -e "source \"$dest/dirpin.sh\"" -e '# dirpin: directory bookmarks' "$rc" > "$tmp" || true
-  mv "$tmp" "$rc"
-  echo "removed source line from $rc"
+  tmp="$(mktemp "${rc}.tmp.XXXXXX" 2>/dev/null)" || tmp="${rc}.tmp.$$-$RANDOM"
+  if awk '
+    /^[[:space:]]*# dirpin: directory bookmarks/ { next }
+    /^[[:space:]]*(source|\.)[[:space:]].*dirpin\.sh/ { next }
+    { print }
+  ' "$rc" > "$tmp"; then
+    mv -f "$tmp" "$rc"
+    echo "removed source line from $rc"
+  else
+    rm -f "$tmp"
+  fi
 fi
 
 rm -f "$dest/dirpin.sh"

@@ -90,8 +90,28 @@ fi
 
 line="source \"$dest/dirpin.sh\""
 touch "$rc"
-if grep -qxF "$line" "$rc"; then
+matches=$(grep -c -E '^[[:space:]]*(source|\.)[[:space:]].*dirpin\.sh' "$rc" || true)
+
+if [ "$matches" -eq 1 ] && grep -qxF "$line" "$rc"; then
   echo "already configured in $rc"
+elif [ "$matches" -gt 0 ]; then
+  tmp="$(mktemp "${rc}.tmp.XXXXXX" 2>/dev/null)" || tmp="${rc}.tmp.$$-$RANDOM"
+  if awk -v new="$line" '
+    /^[[:space:]]*# dirpin: directory bookmarks/ {
+      if (saw_comment) next
+      saw_comment = 1
+    }
+    /^[[:space:]]*(source|\.)[[:space:]].*dirpin\.sh/ {
+      if (!done) { print new; done = 1 }
+      next
+    }
+    { print }
+  ' "$rc" > "$tmp"; then
+    mv -f "$tmp" "$rc"
+    echo "updated in $rc"
+  else
+    rm -f "$tmp"
+  fi
 else
   printf '\n# dirpin: directory bookmarks\n%s\n' "$line" >> "$rc"
   echo "added to $rc"

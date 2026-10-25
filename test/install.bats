@@ -83,6 +83,53 @@ setup() {
   [ ! -d "$XDG_DATA_HOME/dirpin" ]
 }
 
+@test "install.sh replaces existing dirpin line instead of appending duplicate" {
+  mkdir -p "$BATS_TEST_TMPDIR/repo"
+  cp "$BATS_TEST_DIRNAME/../install.sh" "$BATS_TEST_DIRNAME/../dirpin.sh" "$BATS_TEST_TMPDIR/repo/"
+  printf '# dirpin: directory bookmarks\nsource "/custom/path/dirpin.sh"\n' > "$FAKE_RC"
+
+  run bash "$BATS_TEST_TMPDIR/repo/install.sh" --copy --rc "$FAKE_RC"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"updated in $FAKE_RC"* ]]
+  [ "$(grep -c 'dirpin\.sh' "$FAKE_RC")" -eq 1 ]
+  grep -qxF "source \"$XDG_DATA_HOME/dirpin/dirpin.sh\"" "$FAKE_RC"
+}
+
+@test "install.sh deduplicates multiple existing dirpin lines" {
+  mkdir -p "$BATS_TEST_TMPDIR/repo"
+  cp "$BATS_TEST_DIRNAME/../install.sh" "$BATS_TEST_DIRNAME/../dirpin.sh" "$BATS_TEST_TMPDIR/repo/"
+  cat << 'EOF' > "$FAKE_RC"
+# dirpin: directory bookmarks
+source "/first/path/dirpin.sh"
+
+# dirpin: directory bookmarks
+source "/second/path/dirpin.sh"
+EOF
+
+  run bash "$BATS_TEST_TMPDIR/repo/install.sh" --copy --rc "$FAKE_RC"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"updated in $FAKE_RC"* ]]
+  [ "$(grep -c 'dirpin\.sh' "$FAKE_RC")" -eq 1 ]
+  [ "$(grep -c 'dirpin: directory bookmarks' "$FAKE_RC")" -eq 1 ]
+  grep -qxF "source \"$XDG_DATA_HOME/dirpin/dirpin.sh\"" "$FAKE_RC"
+}
+
+@test "uninstall.sh removes varied dirpin source lines" {
+  cat << 'EOF' > "$FAKE_RC"
+export PATH=/bin
+# dirpin: directory bookmarks
+source "/custom/path/dirpin.sh"
+. "/another/dirpin.sh"
+export FOO=bar
+EOF
+
+  run bash "$BATS_TEST_DIRNAME/../uninstall.sh" --rc "$FAKE_RC"
+  [ "$status" -eq 0 ]
+  ! grep -q "dirpin" "$FAKE_RC"
+  grep -qxF "export PATH=/bin" "$FAKE_RC"
+  grep -qxF "export FOO=bar" "$FAKE_RC"
+}
+
 @test "install.sh rejects invalid DIRPIN_REF and DIRPIN_REPO formats" {
   for bad_ref in "v1.0; rm -rf /" "v1.0/../../evil" "v1.0 space" "v1.0*bad" "v1.0\bad"; do
     DIRPIN_REF="$bad_ref" run bash "$BATS_TEST_DIRNAME/../install.sh" --rc "$FAKE_RC"
