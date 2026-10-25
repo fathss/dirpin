@@ -16,7 +16,7 @@
   exit 1
 }
 
-DIRPIN_VERSION="0.3.0"
+DIRPIN_VERSION="0.3.1"
 : "${DIRPIN_FILE:=${XDG_DATA_HOME:-$HOME/.local/share}/dirpin/bookmarks}"
 : "${DIRPIN_CMD:=dp}"
 : "${DIRPIN_REPO:=fathss/dirpin}"
@@ -293,7 +293,9 @@ _dirpin_update() {
   # Copy next to the target, then move over it, so a failure can't leave a half-written file.
   if cp "$tmp" "$_DIRPIN_SELF.new" && mv -- "$_DIRPIN_SELF.new" "$_DIRPIN_SELF"; then
     rm -f "$tmp"
-    echo "updated $DIRPIN_VERSION -> $latest; open a new terminal or run: source \"$_DIRPIN_SELF\""
+    echo "updated $DIRPIN_VERSION -> $latest"
+    # shellcheck source=/dev/null
+    source "$_DIRPIN_SELF"
   else
     rm -f "$tmp" "$_DIRPIN_SELF.new"
     echo "dirpin: could not replace $_DIRPIN_SELF" >&2

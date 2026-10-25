@@ -2,7 +2,11 @@
 
 ## Unreleased
 
-## 0.3.0 - 2026-10-25
+## 0.3.1 - 2026-10-25
+
+### Changed
+
+- **Auto-reload on update (`dp -u`)**: Automatically sources `$_DIRPIN_SELF` after a successful release update, eliminating need to open a new terminal or manual reload.
 
 ### Added
 

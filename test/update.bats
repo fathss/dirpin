@@ -71,6 +71,12 @@ STUB
   grep -q "raw.githubusercontent.com/someone/dirpin/v9.9.9/dirpin.sh" "$STUB_LOG"
 }
 
+@test "update automatically reloads into current shell session" {
+  export STUB_TAG="v9.9.9"
+  dp -u
+  [ "$DIRPIN_VERSION" = "9.9.9" ]
+}
+
 @test "multi-digit versions compare numerically (0.10.0 > 0.9.0)" {
   sed -i.bak 's/^DIRPIN_VERSION=.*/DIRPIN_VERSION="0.9.0"/' "$INSTALLED" && rm -f "$INSTALLED.bak"
   source "$INSTALLED"

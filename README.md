@@ -102,7 +102,7 @@ Bookmarks live in a plain tab-separated text file, so they're easy to back up or
 dp -u
 ```
 
-This checks the latest GitHub release and replaces `dirpin.sh` if there's a newer version. If you installed from a git clone, update with `git pull` instead. Open a new terminal afterwards to load the new version.
+This checks the latest GitHub release and replaces `dirpin.sh` if there's a newer version, automatically reloading it in your current session. If you installed from a git clone, update with `git pull` instead.
 
 ## Development
 
