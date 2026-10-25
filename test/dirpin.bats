@@ -56,6 +56,57 @@ load test_helper
   [ "$(dp -p ab)" = "$BATS_TEST_TMPDIR/proj/deep" ]
 }
 
+@test "rename changes bookmark name and preserves path" {
+  cd proj
+  dp -s old
+  run dp -r old new
+  [ "$status" -eq 0 ]
+  [[ "$output" == "renamed: old -> new" ]]
+  run dp -p old
+  [ "$status" -eq 1 ]
+  [ "$(dp -p new)" = "$BATS_TEST_TMPDIR/proj" ]
+}
+
+@test "rename requires two arguments" {
+  run dp -r
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"usage:"* ]]
+  run dp -r one
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"usage:"* ]]
+}
+
+@test "rename of a missing bookmark fails" {
+  run dp -r nope new
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"no bookmark 'nope'"* ]]
+}
+
+@test "rename to invalid name fails" {
+  cd proj
+  dp -s api
+  run dp -r api "bad name"
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"invalid name"* ]]
+}
+
+@test "rename to existing bookmark fails" {
+  cd proj; dp -s a
+  cd deep; dp -s b
+  run dp -r a b
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"already exists"* ]]
+  [ "$(dp -p a)" = "$BATS_TEST_TMPDIR/proj" ]
+}
+
+@test "rename to same name succeeds" {
+  cd proj; dp -s a
+  run dp -r a a
+  [ "$status" -eq 0 ]
+  [[ "$output" == "renamed: a -> a" ]]
+  [ "$(dp -p a)" = "$BATS_TEST_TMPDIR/proj" ]
+}
+
 @test "jump to an unknown bookmark fails" {
   run dp nope
   [ "$status" -eq 1 ]
@@ -102,6 +153,32 @@ load test_helper
   [[ "${lines[1]}" == zeta*"(missing)" ]]
 }
 
+@test "clean removes stale bookmarks and leaves valid ones" {
+  mkdir valid && cd valid && dp -s ok
+  mkdir gone && cd gone && dp -s dead
+  cd .. && rmdir gone
+  run dp -c
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"cleaned: dead ->"* ]]
+  run dp -p dead
+  [ "$status" -eq 1 ]
+  [ "$(dp -p ok)" = "$BATS_TEST_TMPDIR/valid" ]
+}
+
+@test "clean reports when no stale bookmarks exist" {
+  cd proj && dp -s p1
+  run dp -c
+  [ "$status" -eq 0 ]
+  [[ "$output" == "no stale bookmarks" ]]
+  [ "$(dp -p p1)" = "$BATS_TEST_TMPDIR/proj" ]
+}
+
+@test "clean on empty or missing bookmark file" {
+  run dp -c
+  [ "$status" -eq 0 ]
+  [[ "$output" == "no stale bookmarks" ]]
+}
+
 @test "unknown option fails" {
   run dp -z
   [ "$status" -eq 1 ]
@@ -131,13 +208,24 @@ load test_helper
   COMP_WORDS=(dp -d ""); COMP_CWORD=2
   _dirpin_complete
   [ "${#COMPREPLY[@]}" -eq 2 ]
+  COMP_WORDS=(dp -r ""); COMP_CWORD=2
+  _dirpin_complete
+  [ "${#COMPREPLY[@]}" -eq 2 ]
+  COMP_WORDS=(dp -r alpha ""); COMP_CWORD=3
+  _dirpin_complete
+  [ "${#COMPREPLY[@]}" -eq 0 ]
 }
 
-@test "completion offers flags and nothing after -s" {
+@test "completion offers flags and nothing after -s or -c" {
   COMP_WORDS=(dp -); COMP_CWORD=1
   _dirpin_complete
   [[ " ${COMPREPLY[*]} " == *" -s "* ]]
+  [[ " ${COMPREPLY[*]} " == *" -c "* ]]
+  [[ " ${COMPREPLY[*]} " == *" -r "* ]]
   COMP_WORDS=(dp -s ""); COMP_CWORD=2
+  _dirpin_complete
+  [ "${#COMPREPLY[@]}" -eq 0 ]
+  COMP_WORDS=(dp -c ""); COMP_CWORD=2
   _dirpin_complete
   [ "${#COMPREPLY[@]}" -eq 0 ]
 }

@@ -6,7 +6,9 @@
 #   dp name         jump to a bookmark
 #   dp -s [name]    save the current directory
 #   dp -d name      delete a bookmark
+#   dp -r old new   rename a bookmark
 #   dp -p name      print a bookmark's path (for scripts)
+#   dp -c           clean up bookmarks whose directory no longer exists
 #   dp -u           update to the latest release
 
 (return 0 2>/dev/null) || {
@@ -14,7 +16,7 @@
   exit 1
 }
 
-DIRPIN_VERSION="0.1.2"
+DIRPIN_VERSION="0.2.0"
 : "${DIRPIN_FILE:=${XDG_DATA_HOME:-$HOME/.local/share}/dirpin/bookmarks}"
 : "${DIRPIN_CMD:=dp}"
 : "${DIRPIN_REPO:=fathss/dirpin}"
@@ -110,6 +112,39 @@ _dirpin_delete() {
   echo "deleted: $1"
 }
 
+_dirpin_rename() {
+  if [ -z "${1-}" ] || [ -z "${2-}" ]; then
+    echo "usage: $DIRPIN_CMD -r old new" >&2
+    return 1
+  fi
+  local old="$1" new="$2"
+  if ! _dirpin_get "$old" >/dev/null; then
+    echo "dirpin: no bookmark '$old'" >&2
+    return 1
+  fi
+  if ! _dirpin_valid_name "$new"; then
+    echo "dirpin: invalid name '$new' (no spaces, slashes or leading '-')" >&2
+    return 1
+  fi
+  if [ "$old" = "$new" ]; then
+    echo "renamed: $old -> $new"
+    return 0
+  fi
+  if _dirpin_get "$new" >/dev/null; then
+    echo "dirpin: bookmark '$new' already exists" >&2
+    return 1
+  fi
+  local tmp
+  tmp=$(mktemp "${DIRPIN_FILE}.tmp.XXXXXX" 2>/dev/null) || tmp="$DIRPIN_FILE.tmp.$$-$RANDOM"
+  if OLD="$old" NEW="$new" awk -F'\t' 'BEGIN { OFS="\t" } $1 == ENVIRON["OLD"] { $1 = ENVIRON["NEW"] } { print }' "$DIRPIN_FILE" > "$tmp"; then
+    mv -f -- "$tmp" "$DIRPIN_FILE"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+  echo "renamed: $old -> $new"
+}
+
 _dirpin_path() {
   if [ -z "${1-}" ]; then
     echo "usage: $DIRPIN_CMD -p name" >&2
@@ -119,6 +154,34 @@ _dirpin_path() {
     echo "dirpin: no bookmark '$1'" >&2
     return 1
   }
+}
+
+_dirpin_clean() {
+  if [ ! -s "$DIRPIN_FILE" ]; then
+    echo "no stale bookmarks"
+    return 0
+  fi
+  local tmp
+  tmp=$(mktemp "${DIRPIN_FILE}.tmp.XXXXXX" 2>/dev/null) || tmp="$DIRPIN_FILE.tmp.$$-$RANDOM"
+  local cleaned=0
+  local tab=$'\t'
+  local n p
+  while IFS="$tab" read -r n p || [ -n "$n" ]; do
+    [ -n "$n" ] || continue
+    if [ -d "$p" ]; then
+      printf '%s\t%s\n' "$n" "$p" >> "$tmp"
+    else
+      echo "cleaned: $n -> $p"
+      cleaned=$((cleaned + 1))
+    fi
+  done < "$DIRPIN_FILE"
+
+  if [ "$cleaned" -gt 0 ]; then
+    mv -f -- "$tmp" "$DIRPIN_FILE"
+  else
+    rm -f "$tmp"
+    echo "no stale bookmarks"
+  fi
 }
 
 _dirpin_jump() {
@@ -211,7 +274,9 @@ dirpin $DIRPIN_VERSION - named directory bookmarks
   $DIRPIN_CMD name         jump to a bookmark
   $DIRPIN_CMD -s [name]    save the current directory (default name: folder name)
   $DIRPIN_CMD -d name      delete a bookmark
+  $DIRPIN_CMD -r old new   rename a bookmark
   $DIRPIN_CMD -p name      print a bookmark's path, e.g. cp file "\$($DIRPIN_CMD -p name)"
+  $DIRPIN_CMD -c           clean up bookmarks whose directory no longer exists
   $DIRPIN_CMD -u           update to the latest release
   $DIRPIN_CMD -h           show this help
   $DIRPIN_CMD -V           show the version
@@ -225,7 +290,9 @@ _dirpin() {
     "" | -l | --list) _dirpin_list ;;
     -s | --save) _dirpin_save "${2-}" ;;
     -d | --delete) _dirpin_delete "${2-}" ;;
+    -r | --rename) _dirpin_rename "${2-}" "${3-}" ;;
     -p | --path) _dirpin_path "${2-}" ;;
+    -c | --clean) _dirpin_clean ;;
     -u | --update) _dirpin_update ;;
     -h | --help) _dirpin_help ;;
     -V | --version) echo "dirpin $DIRPIN_VERSION" ;;
@@ -252,16 +319,21 @@ _dirpin_complete() {
   [ -n "${ZSH_VERSION-}" ] && setopt localoptions ksharrays
   local cur="${COMP_WORDS[COMP_CWORD]}" prev="${COMP_WORDS[COMP_CWORD - 1]}"
   case "$prev" in
-    -s | --save) COMPREPLY=() ;; # a new name: nothing to suggest
-    -d | --delete | -p | --path)
+    -s | --save | -c | --clean) COMPREPLY=() ;; # a new name or no arg: nothing to suggest
+    -d | --delete | -p | --path | -r | --rename)
       _dirpin_reply "$(_dirpin_names)" "$cur"
       ;;
     *)
-      if [[ "$cur" == -* ]]; then
-        _dirpin_reply "-s -d -p -l -u -h -V" "$cur"
-      else
-        _dirpin_reply "$(_dirpin_names)" "$cur"
-      fi
+      case "${COMP_WORDS[1]-}" in
+        -r | --rename) COMPREPLY=() ;; # new name: nothing to suggest
+        *)
+          if [[ "$cur" == -* ]]; then
+            _dirpin_reply "-s -d -r -p -c -l -u -h -V" "$cur"
+          else
+            _dirpin_reply "$(_dirpin_names)" "$cur"
+          fi
+          ;;
+      esac
       ;;
   esac
 }
