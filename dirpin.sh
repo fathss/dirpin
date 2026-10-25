@@ -16,7 +16,7 @@
   exit 1
 }
 
-DIRPIN_VERSION="0.2.0"
+DIRPIN_VERSION="0.2.1"
 : "${DIRPIN_FILE:=${XDG_DATA_HOME:-$HOME/.local/share}/dirpin/bookmarks}"
 : "${DIRPIN_CMD:=dp}"
 : "${DIRPIN_REPO:=fathss/dirpin}"
