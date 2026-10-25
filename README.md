@@ -129,6 +129,7 @@ Requires [bats-core](https://github.com/bats-core/bats-core) and [shellcheck](ht
 - Subpath jumping: `dp api/src/controllers`
 - Project-local bookmark files that teammates share through the repo
 - zsh and more Linux distributions in CI
+- fish shell support
 
 ## License
 
