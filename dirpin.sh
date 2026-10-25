@@ -16,7 +16,7 @@
   exit 1
 }
 
-DIRPIN_VERSION="0.2.1"
+DIRPIN_VERSION="0.3.0"
 : "${DIRPIN_FILE:=${XDG_DATA_HOME:-$HOME/.local/share}/dirpin/bookmarks}"
 : "${DIRPIN_CMD:=dp}"
 : "${DIRPIN_REPO:=fathss/dirpin}"
@@ -145,15 +145,49 @@ _dirpin_rename() {
   echo "renamed: $old -> $new"
 }
 
+# Resolve bookmark name and optional subpath to an absolute directory path.
+_dirpin_resolve() {
+  local arg="$1"
+  local name="${arg%%/*}"
+  local sub="${arg#*/}"
+  [ "$name" = "$arg" ] && sub=""
+
+  local base
+  base=$(_dirpin_get "$name") || {
+    echo "dirpin: no bookmark '$name'" >&2
+    return 1
+  }
+
+  while [ "${sub#/}" != "$sub" ]; do sub="${sub#/}"; done
+  while [ "${sub%/}" != "$sub" ]; do sub="${sub%/}"; done
+
+  if [ -z "$sub" ]; then
+    printf '%s\n' "$base"
+    return 0
+  fi
+
+  case "$sub" in
+    .. | ../* | */.. | */../*)
+      echo "dirpin: subpath cannot contain '..'" >&2
+      return 1
+      ;;
+  esac
+
+  local target="$base/$sub"
+  if [ ! -e "$target" ]; then
+    echo "dirpin: path does not exist: $target" >&2
+    return 1
+  fi
+
+  printf '%s\n' "$target"
+}
+
 _dirpin_path() {
   if [ -z "${1-}" ]; then
     echo "usage: $DIRPIN_CMD -p name" >&2
     return 1
   fi
-  _dirpin_get "$1" || {
-    echo "dirpin: no bookmark '$1'" >&2
-    return 1
-  }
+  _dirpin_resolve "$1"
 }
 
 _dirpin_clean() {
@@ -186,12 +220,13 @@ _dirpin_clean() {
 
 _dirpin_jump() {
   local dir
-  dir=$(_dirpin_get "$1") || {
-    echo "dirpin: no bookmark '$1'" >&2
-    return 1
-  }
+  dir=$(_dirpin_resolve "$1") || return 1
   if [ ! -d "$dir" ]; then
-    echo "dirpin: directory no longer exists: $dir" >&2
+    if [ ! -e "$dir" ]; then
+      echo "dirpin: directory no longer exists: $dir" >&2
+    else
+      echo "dirpin: not a directory: $dir" >&2
+    fi
     return 1
   fi
   cd -- "$dir" || return 1
@@ -270,16 +305,16 @@ _dirpin_help() {
   cat <<HELP
 dirpin $DIRPIN_VERSION - named directory bookmarks
 
-  $DIRPIN_CMD              list bookmarks
-  $DIRPIN_CMD name         jump to a bookmark
-  $DIRPIN_CMD -s [name]    save the current directory (default name: folder name)
-  $DIRPIN_CMD -d name      delete a bookmark
-  $DIRPIN_CMD -r old new   rename a bookmark
-  $DIRPIN_CMD -p name      print a bookmark's path, e.g. cp file "\$($DIRPIN_CMD -p name)"
-  $DIRPIN_CMD -c           clean up bookmarks whose directory no longer exists
-  $DIRPIN_CMD -u           update to the latest release
-  $DIRPIN_CMD -h           show this help
-  $DIRPIN_CMD -V           show the version
+  $DIRPIN_CMD                  list bookmarks
+  $DIRPIN_CMD name[/subpath]   jump to a bookmark or subpath
+  $DIRPIN_CMD -s [name]        save the current directory (default name: folder name)
+  $DIRPIN_CMD -d name          delete a bookmark
+  $DIRPIN_CMD -r old new       rename a bookmark
+  $DIRPIN_CMD -p name[/sub]    print a bookmark's path, e.g. cp file "\$($DIRPIN_CMD -p name/sub)"
+  $DIRPIN_CMD -c               clean up bookmarks whose directory no longer exists
+  $DIRPIN_CMD -u               update to the latest release
+  $DIRPIN_CMD -h               show this help
+  $DIRPIN_CMD -V               show the version
 
 Bookmarks are stored in: $DIRPIN_FILE
 HELP
@@ -291,7 +326,7 @@ _dirpin() {
     -s | --save) _dirpin_save "${2-}" ;;
     -d | --delete) _dirpin_delete "${2-}" ;;
     -r | --rename) _dirpin_rename "${2-}" "${3-}" ;;
-    -p | --path) _dirpin_path "${2-}" ;;
+    -p | --path) shift; _dirpin_path "$*" ;;
     -c | --clean) _dirpin_clean ;;
     -u | --update) _dirpin_update ;;
     -h | --help) _dirpin_help ;;
@@ -300,7 +335,7 @@ _dirpin() {
       echo "dirpin: unknown option '$1' (try $DIRPIN_CMD -h)" >&2
       return 1
       ;;
-    *) _dirpin_jump "$1" ;;
+    *) _dirpin_jump "$*" ;;
   esac
 }
 
@@ -315,22 +350,103 @@ _dirpin_reply() {
   done < <(compgen -W "$1" -- "$2")
 }
 
+_dirpin_complete_target() {
+  local cur="$1"
+  local start=1
+  if [ "${COMP_WORDS[1]-}" = "-p" ] || [ "${COMP_WORDS[1]-}" = "--path" ]; then
+    start=2
+  fi
+
+  local line="${COMP_LINE:0:COMP_POINT}"
+  local full=""
+  if [ -n "$line" ]; then
+    full="${line#* }"
+    while [ "${full# }" != "$full" ]; do full="${full# }"; done
+    if [ "${full%% *}" = "-p" ] || [ "${full%% *}" = "--path" ]; then
+      full="${full#* }"
+      while [ "${full# }" != "$full" ]; do full="${full# }"; done
+    fi
+  else
+    local i="$start"
+    while [ "$i" -le "$COMP_CWORD" ]; do
+      full="$full${COMP_WORDS[i]}"
+      i=$((i + 1))
+    done
+  fi
+  [ -z "$full" ] && full="$cur"
+
+  local in_quote=0
+  case "$full" in
+    \"* | \'*)
+      in_quote=1
+      full="${full#?}"
+      ;;
+  esac
+
+  if [[ "$full" != */* ]]; then
+    _dirpin_reply "$(_dirpin_names)" "$cur"
+    return 0
+  fi
+
+  local bm="${full%%/*}" sub="${full#*/}"
+  local base
+  base=$(_dirpin_get "$bm") || return 0
+  [ -d "$base" ] || return 0
+
+  sub="${sub//\\ / }"
+
+  case "$sub" in
+    .. | ../* | */.. | */../*) return 0 ;;
+  esac
+
+  local search_dir tail prefix
+  if [[ "$sub" == */* ]]; then
+    search_dir="$base/${sub%/*}"
+    tail="${sub##*/}"
+  else
+    search_dir="$base"
+    tail="$sub"
+  fi
+  [ -d "$search_dir" ] || return 0
+
+  if [[ "$cur" == */* ]]; then
+    prefix="${cur%/*}/"
+  else
+    prefix=""
+  fi
+
+  COMPREPLY=()
+  local d name
+  for d in "$search_dir"/"$tail"*; do
+    [ -d "$d" ] || continue
+    name="${d#"$search_dir"/}"
+    [ "$in_quote" -eq 0 ] && name="${name// /\\ }"
+    COMPREPLY+=("$prefix$name/")
+  done
+}
+
 _dirpin_complete() {
   [ -n "${ZSH_VERSION-}" ] && setopt localoptions ksharrays
   local cur="${COMP_WORDS[COMP_CWORD]}" prev="${COMP_WORDS[COMP_CWORD - 1]}"
   case "$prev" in
     -s | --save | -c | --clean) COMPREPLY=() ;; # a new name or no arg: nothing to suggest
-    -d | --delete | -p | --path | -r | --rename)
+    -d | --delete | -r | --rename)
       _dirpin_reply "$(_dirpin_names)" "$cur"
+      ;;
+    -p | --path)
+      _dirpin_complete_target "$cur"
       ;;
     *)
       case "${COMP_WORDS[1]-}" in
-        -r | --rename) COMPREPLY=() ;; # new name: nothing to suggest
+        -r | --rename | -d | --delete) COMPREPLY=() ;; # nothing to suggest
+        -p | --path)
+          _dirpin_complete_target "$cur"
+          ;;
         *)
           if [[ "$cur" == -* ]]; then
             _dirpin_reply "-s -d -r -p -c -l -u -h -V" "$cur"
           else
-            _dirpin_reply "$(_dirpin_names)" "$cur"
+            _dirpin_complete_target "$cur"
           fi
           ;;
       esac
@@ -354,7 +470,8 @@ case "$DIRPIN_CMD" in
         autoload -U +X bashcompinit 2>/dev/null && bashcompinit 2>/dev/null
       fi
       if command -v complete >/dev/null 2>&1; then
-        complete -F _dirpin_complete "$DIRPIN_CMD" 2>/dev/null || true
+        complete -o nospace -F _dirpin_complete "$DIRPIN_CMD" 2>/dev/null ||
+          complete -F _dirpin_complete "$DIRPIN_CMD" 2>/dev/null || true
       fi
     fi
     ;;

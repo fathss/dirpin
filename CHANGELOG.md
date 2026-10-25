@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.3.0 - 2026-10-25
+
+### Added
+
+- **Subpath navigation (`dp name/subpath`)**: Jump into subdirectories beneath a bookmark. Supports paths and subpaths with spaces without manual quoting.
+- **Subpath printing (`dp -p name/subpath`)**: Resolve and print full subpath for scripts.
+- **Tab completion for subpaths**: Auto-complete child directories with trailing slash in both Bash and Zsh, including folders containing spaces (escaped or quoted).
+- **Path traversal protection**: Rejects `..` segments to ensure jumps remain inside bookmarked trees.
+
 ## 0.2.1 - 2026-10-25
 
 ### Fixed

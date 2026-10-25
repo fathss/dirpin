@@ -68,19 +68,19 @@ Or manually: remove the `source` line and `# dirpin` comment from your rc file, 
 
 ## Usage
 
-| Command           | What it does                                               |
-| ----------------- | ---------------------------------------------------------- |
-| `dp`              | List bookmarks (missing directories are flagged)           |
-| `dp name`         | Jump to a bookmark                                         |
-| `dp -s [name]`    | Save the current directory (defaults to the folder's name) |
-| `dp -d name`      | Delete a bookmark                                          |
-| `dp -r old new`   | Rename a bookmark                                          |
-| `dp -p name`      | Print the path, for scripts: `cp file "$(dp -p api)"`      |
-| `dp -c`           | Clean up bookmarks whose directory no longer exists        |
-| `dp -u`           | Update to the latest release                               |
-| `dp -h` / `dp -V` | Help / version                                             |
+| Command            | What it does                                               |
+| ------------------ | ---------------------------------------------------------- |
+| `dp`               | List bookmarks (missing directories are flagged)           |
+| `dp name[/sub]`    | Jump to a bookmark or subpath (`dp api/src/controllers`)   |
+| `dp -s [name]`     | Save the current directory (defaults to the folder's name) |
+| `dp -d name`       | Delete a bookmark                                          |
+| `dp -r old new`    | Rename a bookmark                                          |
+| `dp -p name[/sub]` | Print the path, for scripts: `cp file "$(dp -p api/src)"`  |
+| `dp -c`            | Clean up bookmarks whose directory no longer exists        |
+| `dp -u`            | Update to the latest release                               |
+| `dp -h` / `dp -V`  | Help / version                                             |
 
-Tab completion works for bookmark names and flags.
+Tab completion works for bookmark names, subdirectories, and flags.
 
 Bookmark names can't contain whitespace or slashes, or start with `-`.
 
@@ -126,7 +126,6 @@ Requires [bats-core](https://github.com/bats-core/bats-core) and [shellcheck](ht
 
 ## Roadmap
 
-- Subpath jumping: `dp api/src/controllers`
 - Project-local bookmark files that teammates share through the repo
 - zsh and more Linux distributions in CI
 - fish shell support

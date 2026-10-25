@@ -248,3 +248,140 @@ load test_helper
   [ "$status" -eq 1 ]
   [[ "$output" == *"source this file"* ]]
 }
+
+@test "jump to bookmark subpath" {
+  cd proj
+  dp -s root
+  cd /
+  dp root/deep/nested
+  [ "$PWD" = "$BATS_TEST_TMPDIR/proj/deep/nested" ]
+}
+
+@test "jump to non-existent subpath fails and stays in place" {
+  cd proj
+  dp -s root
+  cd /
+  run dp root/does/not/exist
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"path does not exist"* ]]
+  [ "$PWD" = "/" ]
+}
+
+@test "jump to subpath that is a regular file fails" {
+  cd proj
+  touch somefile
+  dp -s root
+  cd /
+  run dp root/somefile
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"not a directory"* ]]
+  [ "$PWD" = "/" ]
+}
+
+@test "jump to subpath with .. is rejected" {
+  cd proj
+  dp -s root
+  cd /
+  run dp root/../proj
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"subpath cannot contain '..'"* ]]
+  run dp root/deep/../../etc
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"subpath cannot contain '..'"* ]]
+}
+
+@test "-p prints bookmark subpath" {
+  cd proj
+  dp -s root
+  [ "$(dp -p root/deep)" = "$BATS_TEST_TMPDIR/proj/deep" ]
+  [ "$(dp -p root/deep/nested)" = "$BATS_TEST_TMPDIR/proj/deep/nested" ]
+}
+
+@test "-p with non-existent subpath fails" {
+  cd proj
+  dp -s root
+  run dp -p root/nope
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"path does not exist"* ]]
+}
+
+@test "-p rejects .. in subpath" {
+  cd proj
+  dp -s root
+  run dp -p root/..
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"subpath cannot contain '..'"* ]]
+}
+
+@test "subpaths with spaces work for jump and -p" {
+  mkdir -p "$BATS_TEST_TMPDIR/proj/sub dir"
+  cd proj
+  dp -s root
+  cd /
+  dp "root/sub dir"
+  [ "$PWD" = "$BATS_TEST_TMPDIR/proj/sub dir" ]
+  [ "$(dp -p "root/sub dir")" = "$BATS_TEST_TMPDIR/proj/sub dir" ]
+  cd /
+  dp root/sub dir
+  [ "$PWD" = "$BATS_TEST_TMPDIR/proj/sub dir" ]
+  [ "$(dp -p root/sub dir)" = "$BATS_TEST_TMPDIR/proj/sub dir" ]
+}
+
+@test "completion suggests subdirectories with trailing slash (unsplit cur)" {
+  cd proj; dp -s root
+  COMP_WORDS=(dp root/); COMP_CWORD=1
+  _dirpin_complete
+  [ "${COMPREPLY[*]}" = "root/deep/" ]
+  COMP_WORDS=(dp root/d); COMP_CWORD=1
+  _dirpin_complete
+  [ "${COMPREPLY[*]}" = "root/deep/" ]
+  COMP_WORDS=(dp root/deep/); COMP_CWORD=1
+  _dirpin_complete
+  [ "${COMPREPLY[*]}" = "root/deep/nested/" ]
+}
+
+@test "completion suggests subdirectories in bash split wordbreaks" {
+  cd proj; dp -s root
+  COMP_WORDS=(dp root / ""); COMP_CWORD=3
+  _dirpin_complete
+  [ "${COMPREPLY[*]}" = "deep/" ]
+  COMP_WORDS=(dp root / d); COMP_CWORD=3
+  _dirpin_complete
+  [ "${COMPREPLY[*]}" = "deep/" ]
+  COMP_WORDS=(dp root / deep / ""); COMP_CWORD=5
+  _dirpin_complete
+  [ "${COMPREPLY[*]}" = "nested/" ]
+}
+
+@test "completion for -p suggests subdirectories" {
+  cd proj; dp -s root
+  COMP_WORDS=(dp -p root/); COMP_CWORD=2
+  _dirpin_complete
+  [ "${COMPREPLY[*]}" = "root/deep/" ]
+  COMP_WORDS=(dp -p root / ""); COMP_CWORD=4
+  _dirpin_complete
+  [ "${COMPREPLY[*]}" = "deep/" ]
+}
+
+@test "completion suggests subdirectories with spaces" {
+  mkdir -p "$BATS_TEST_TMPDIR/proj/dir with space/nested"
+  cd proj; dp -s root
+  COMP_WORDS=(dp root/dir); COMP_CWORD=1
+  _dirpin_complete
+  [ "${COMPREPLY[*]}" = "root/dir\\ with\\ space/" ]
+
+  COMP_WORDS=(dp "root/dir\\ with\\ space/"); COMP_CWORD=1
+  _dirpin_complete
+  [ "${COMPREPLY[*]}" = "root/dir\\ with\\ space/nested/" ]
+
+  COMP_WORDS=(dp root / "dir\\ with\\ space" / ""); COMP_CWORD=5
+  _dirpin_complete
+  [ "${COMPREPLY[*]}" = "nested/" ]
+}
+
+@test "completion does not suggest subpaths for -d" {
+  cd proj; dp -s root
+  COMP_WORDS=(dp -d root / ""); COMP_CWORD=4
+  _dirpin_complete
+  [ "${#COMPREPLY[@]}" -eq 0 ]
+}
